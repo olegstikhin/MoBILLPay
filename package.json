@@ -19,10 +19,15 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "buffer": "^5.0.8",
+    "events": "^1.1.1",
     "expo": "^23.0.4",
     "react": "16.0.0",
     "react-native": "0.50.3",
     "react-navigation": "^1.0.0-beta.21",
+    "stream": "0.0.2",
+    "timers": "^0.1.1",
+    "util": "^0.10.3",
     "xml2js": "^0.4.19"
   }
 }
