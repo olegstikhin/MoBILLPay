@@ -55,12 +55,10 @@ export class HomeScreen extends React.Component {
   async saveId(text) {
     const { navigate } = this.props.navigation;
 
-    var params = "code=" + this.state.idText;
-
     try {
-      post("https://bill.teknolog.fi/config", params)
-      .then((response) => {
-        parseString(response, {strict: false}, function(err, result) {
+      post("https://bill.teknolog.fi/config", "code=" + this.state.idText)
+      .then((responseText) => {
+        parseString(responseText, {strict: false}, function(err, result) {
           navigate('Pay', {
             billId: text,
             userName: result.HTML.BODY[0].TABLE[0].TR[5].TD[1],
@@ -120,14 +118,7 @@ export class PayScreen extends React.Component {
     const { navigate } = this.props.navigation;
 
     try {
-      fetch("https://bill.teknolog.fi/config", {
-        method: 'POST',
-        headers: new Headers({
-          'Content-Type': 'application/x-www-form-urlencoded',
-        }),
-        body: "code="+billId+"&account="+receiverId+"&amount="+amount
-      })
-      .then((response) => response.text())
+      post("https://bill.teknolog.fi/config", "code="+billId+"&account="+receiverId+"&amount="+amount)
       .then((responseText) => {
         parseString(responseText, {strict: false}, function(err, result) {
           try {
@@ -168,14 +159,7 @@ export class ConfirmScreen extends React.Component {
 
   pay(billId, receiverId, receiverName, amount, balance) {
     const { navigate } = this.props.navigation;
-    fetch("https://bill.teknolog.fi/config", {
-      method: 'POST',
-      headers: new Headers({
-        'Content-Type': 'application/x-www-form-urlencoded',
-      }),
-      body: "code="+billId+"&account="+receiverId+"&amount="+amount+"&balance="+balance+"&check=1337&secret=1337"
-    })
-    .then((response) => response.text())
+    post("https://bill.teknolog.fi/config", "code="+billId+"&account="+receiverId+"&amount="+amount+"&balance="+balance+"&check=1337&secret=1337")
     .then((responseText) => {
       parseString(responseText, {strict: false}, function(err, result) {
         if (result.HTML.BODY[0].FONT[0]._.indexOf("rdes.")) {
