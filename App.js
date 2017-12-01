@@ -3,6 +3,25 @@ import { StyleSheet, Text, TextInput, Button, View, AsyncStorage } from 'react-n
 import { StackNavigator, } from 'react-navigation';
 
 var parseString = require('xml2js').parseString;
+var iconv = require('iconv-lite');
+var Buffer = require('buffer/').Buffer;
+
+function post(url, params) {
+  return new Promise((resolve, reject) => {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhr.responseType = "arraybuffer";
+    xhr.onreadystatechange = function() {//Call a function when the state changes.
+      if(xhr.readyState == XMLHttpRequest.DONE && xhr.status == 200) {
+        var b = new Buffer.from(xhr.response);
+        var decodedResponse = iconv.decode(b, 'win1252');
+        resolve(decodedResponse);
+      }
+    }
+    xhr.send(params);
+  });
+}
 
 export class HomeScreen extends React.Component {
   static navigationOptions = { title: 'MoBILLPay', };
@@ -10,11 +29,9 @@ export class HomeScreen extends React.Component {
   constructor(props){
     super(props);
     this.state = {
-      billId: '',
+      idText: '',
     }
   }
-
-  componentDidMount = () => AsyncStorage.getItem('@MoBILLPay:billId').then((value) => this.setState({'billId': value}))
 
   render() {
     return (
@@ -30,24 +47,20 @@ export class HomeScreen extends React.Component {
           onChangeText={(idText) => this.setState({idText})}
         />
         <Button title="Fortsätt" onPress={() => this.saveId(this.state.idText) } />
+        <Text>MoBILLPay 0.1.1 - 1 december 2017</Text>
       </View>
     );
   }
 
   async saveId(text) {
     const { navigate } = this.props.navigation;
+
+    var params = "code=" + this.state.idText;
+
     try {
-      //await AsyncStorage.setItem('@MoBILLPay:billId', this.state.idText);
-      fetch("https://bill.teknolog.fi/config", {
-        method: 'POST',
-        headers: new Headers({
-          'Content-Type': 'application/x-www-form-urlencoded',
-        }),
-        body: "code="+this.state.idText
-      })
-      .then((response) => response.text())
-      .then((responseText) => {
-        parseString(responseText, {strict: false}, function(err, result) {
+      post("https://bill.teknolog.fi/config", params)
+      .then((response) => {
+        parseString(response, {strict: false}, function(err, result) {
           navigate('Pay', {
             billId: text,
             userName: result.HTML.BODY[0].TABLE[0].TR[5].TD[1],
@@ -55,8 +68,13 @@ export class HomeScreen extends React.Component {
           });
         });
       })
+      .catch((err) => {
+        alert("Inget konto hittades!");
+        console.log(err);
+      });
     } catch (error) {
-      console.error(error);
+      alert("Ett fel inträffade");
+      console.log(error);
     }
   }
 
@@ -64,6 +82,15 @@ export class HomeScreen extends React.Component {
 
 export class PayScreen extends React.Component {
   static navigationOptions = { title: 'Överför', };
+
+  constructor(props){
+    super(props);
+    this.state = {
+      receiverIdText: '',
+      amountText: '',
+    }
+  }
+
   render() {
     const { state } = this.props.navigation;
     return (
@@ -91,34 +118,41 @@ export class PayScreen extends React.Component {
 
   preparePayment(billId, receiverId, amount) {
     const { navigate } = this.props.navigation;
-    fetch("https://bill.teknolog.fi/config", {
-      method: 'POST',
-      headers: new Headers({
-        'Content-Type': 'application/x-www-form-urlencoded',
-      }),
-      body: "code="+billId+"&account="+receiverId+"&amount="+amount
-    })
-    .then((response) => response.text())
-    .then((responseText) => {
-      parseString(responseText, {strict: false}, function(err, result) {
-        navigate('Confirm', {
-          billId: billId,
-          receiverId: result.HTML.BODY[0].BR[0].P[0].FORM[0].INPUT[0].INPUT[0].INPUT[0].$.VALUE,
-          receiverName: result.HTML.BODY[0].I[0],
-          amount: amount,
-          userName: result.HTML.BODY[0].TABLE[0].TR[5].TD[1],
-          balance: result.HTML.BODY[0].BR[0].P[0].FORM[0].INPUT[0].INPUT[0].INPUT[0].INPUT[0].INPUT[0].$.VALUE,
+
+    try {
+      fetch("https://bill.teknolog.fi/config", {
+        method: 'POST',
+        headers: new Headers({
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
+        body: "code="+billId+"&account="+receiverId+"&amount="+amount
+      })
+      .then((response) => response.text())
+      .then((responseText) => {
+        parseString(responseText, {strict: false}, function(err, result) {
+          try {
+            navigate('Confirm', {
+              billId: billId,
+              receiverId: result.HTML.BODY[0].BR[0].P[0].FORM[0].INPUT[0].INPUT[0].INPUT[0].$.VALUE,
+              receiverName: result.HTML.BODY[0].I[0],
+              amount: amount,
+              userName: result.HTML.BODY[0].TABLE[0].TR[5].TD[1],
+              balance: result.HTML.BODY[0].BR[0].P[0].FORM[0].INPUT[0].INPUT[0].INPUT[0].INPUT[0].INPUT[0].$.VALUE,
+            });
+          } catch (err) { alert ("Fel inmatning!"); }
         });
+      })
+      .catch((error) => {
+        alert ("Ett fel inträffade.");
+        console.error(error);
       });
-    })
-    .catch((error) => {
-      console.error(error);
-    });
+    } catch (err) { alert ("Fel inmatning!"); }
   }
 }
 
 export class ConfirmScreen extends React.Component {
   static navigationOptions = { title: 'Sammanfattning', };
+
   render() {
     const { state } = this.props.navigation;
     return (
@@ -155,6 +189,7 @@ export class ConfirmScreen extends React.Component {
       });
     })
     .catch((error) => {
+      alert ("Ett fel inträffade.");
       console.error(error);
     });
   }
